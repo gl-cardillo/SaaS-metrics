@@ -12,4 +12,128 @@ model Customer {
   name      String
   email     String   @unique
   createdAt DateTime @default(now())
+
+  subscriptions Subscription[]
+  invoices      Invoice[]
+}
+
+model Plan {
+  id            String        @id @default(uuid())
+  name          String
+  price         Decimal       @db.Decimal(10, 2)
+  billingPeriod BillingPeriod
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+
+  subscriptions    Subscription[]
+  eventsAsPrevious SubscriptionEvent[] @relation("PreviousPlan")
+  eventsAsNew      SubscriptionEvent[] @relation("NewPlan")
+}
+
+model Subscription {
+  id         String             @id @default(uuid())
+  customerId String
+  planId     String
+  status     SubscriptionStatus
+  startDate  DateTime
+  endDate    DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  customer Customer            @relation(fields: [customerId], references: [id])
+  plan     Plan                @relation(fields: [planId], references: [id])
+  events   SubscriptionEvent[]
+  invoices Invoice[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model SubscriptionEvent {
+  id             String                @id @default(uuid())
+  subscriptionId String
+  type           SubscriptionEventType
+  previousPlanId String?
+  newPlanId      String?
+  mrrDelta       Decimal?              @db.Decimal(10, 2)
+  occurredAt     DateTime              @default(now())
+  createdAt      DateTime              @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  previousPlan Plan?        @relation("PreviousPlan", fields: [previousPlanId], references: [id])
+  newPlan      Plan?        @relation("NewPlan", fields: [newPlanId], references: [id])
+
+  @@index([subscriptionId])
+  @@index([occurredAt])
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  subscriptionId String
+  customerId     String
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("usd")
+  status         InvoiceStatus
+  periodStart    DateTime
+  periodEnd      DateTime
+  issuedAt       DateTime      @default(now())
+  dueAt          DateTime?
+  createdAt      DateTime      @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  payments     Payment[]
+
+  @@index([subscriptionId])
+  @@index([customerId])
+}
+
+model Payment {
+  id        String        @id @default(uuid())
+  invoiceId String
+  amount    Decimal       @db.Decimal(10, 2)
+  status    PaymentStatus
+  method    String?
+  paidAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum SubscriptionEventType {
+  CREATED
+  UPGRADED
+  DOWNGRADED
+  CANCELLED
+  REACTIVATED
+  RENEWED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+enum PaymentStatus {
+  SUCCEEDED
+  FAILED
+  PENDING
+  REFUNDED
 }
