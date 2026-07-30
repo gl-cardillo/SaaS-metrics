@@ -20,7 +20,7 @@ monthly_deltas AS (
   GROUP BY 1
 )
 SELECT
-  m.month,
+  to_char(m.month, 'YYYY-MM-DD') AS month, -- format as plain text
   COALESCE(d.new_mrr, 0)          AS new_mrr,
   COALESCE(d.expansion_mrr, 0)    AS expansion_mrr,
   COALESCE(d.contraction_mrr, 0)  AS contraction_mrr,
@@ -75,7 +75,7 @@ mrr_figures AS (
   GROUP BY b.month_start
 )
 SELECT
-  c.month_start,
+  to_char(c.month_start, 'YYYY-MM-DD') AS month_start,
   c.active_at_start,
   c.churned_customers,
   ROUND(100.0 * c.churned_customers / NULLIF(c.active_at_start, 0), 2) AS customer_churn_rate_pct,
@@ -121,7 +121,7 @@ retention AS (
   GROUP BY co.cohort_month, p.months_since_signup
 )
 SELECT
-  r.cohort_month,
+  to_char(r.cohort_month, 'YYYY-MM-DD') AS cohort_month,
   cs.cohort_size,
   r.months_since_signup,
   r.retained_customers,
