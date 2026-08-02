@@ -1,31 +1,21 @@
-import { prisma } from "@/lib/prisma";
+import { Dashboard } from "@/components/Dashboard";
 
-export default async function Home() {
-  const customers = await prisma.customer.findMany({
-    orderBy: { createdAt: "asc" },
-  });
-
+const Home = () => {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-24">
-      <h1 className="text-4xl font-bold">SaaS Metrics Dashboard</h1>
-      <table className="min-w-md text-left">
-        <thead>
-          <tr>
-            <th className="pr-4">Name</th>
-            <th className="pr-4">Email</th>
-            <th>Joined</th>
-          </tr>
-        </thead>
-        <tbody>
-          {customers.map((customer) => (
-            <tr key={customer.id}>
-              <td className="pr-4">{customer.name}</td>
-              <td className="pr-4">{customer.email}</td>
-              <td>{customer.createdAt.toLocaleDateString()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 p-6 lg:p-8">
+      <header className="flex items-center gap-3">
+        <span
+          className="h-2.5 w-2.5 rounded-full"
+          style={{ background: "var(--status-good)", boxShadow: "0 0 8px var(--status-good)" }}
+        />
+        <h1 className="text-xl font-bold tracking-tight text-white">
+          SaaS Metrics
+        </h1>
+        <span className="text-sm text-[var(--text-muted)]">Live revenue &amp; retention</span>
+      </header>
+      <Dashboard />
     </main>
   );
-}
+};
+
+export default Home;

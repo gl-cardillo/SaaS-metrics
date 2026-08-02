@@ -4,6 +4,18 @@ const num = (value: unknown): number => {
   return value === null || value === undefined ? 0 : Number(value);
 };
 
+export type DashboardFilters = {
+  startDate?: string | null;
+  endDate?: string | null;
+  planTier?: string | null;
+};
+
+const normalize = (filters: DashboardFilters) => ({
+  startDate: filters.startDate ?? null,
+  endDate: filters.endDate ?? null,
+  planTier: filters.planTier ?? null,
+});
+
 export type MrrRow = {
   month: string;
   newMrr: number;
@@ -13,7 +25,10 @@ export type MrrRow = {
   mrr: number;
 };
 
-export async function getMonthlyMrr(): Promise<MrrRow[]> {
+// Monthly MRR breakdown, filtered by date range and current plan tier
+export async function getMonthlyMrr(filters: DashboardFilters = {}): Promise<MrrRow[]> {
+  const { startDate, endDate, planTier } = normalize(filters);
+
   const rows = await prisma.$queryRaw<Record<string, unknown>[]>`
     WITH months AS (
       SELECT generate_series(
@@ -31,18 +46,29 @@ export async function getMonthlyMrr(): Promise<MrrRow[]> {
         SUM(e."mrrDelta") FILTER (WHERE e.type = 'CANCELLED')  AS churned_mrr,
         SUM(e."mrrDelta")                                      AS net_mrr_change
       FROM "SubscriptionEvent" e
+      JOIN "Subscription" s ON s.id = e."subscriptionId"
+      JOIN "Plan" p ON p.id = s."planId"
+      WHERE (${planTier}::text IS NULL OR p.name = ${planTier})
       GROUP BY 1
+    ),
+    full_series AS (
+      SELECT
+        m.month,
+        COALESCE(d.new_mrr, 0)          AS new_mrr,
+        COALESCE(d.expansion_mrr, 0)    AS expansion_mrr,
+        COALESCE(d.contraction_mrr, 0)  AS contraction_mrr,
+        COALESCE(d.churned_mrr, 0)      AS churned_mrr,
+        SUM(COALESCE(d.net_mrr_change, 0)) OVER (ORDER BY m.month) AS mrr
+      FROM months m
+      LEFT JOIN monthly_deltas d ON d.month = m.month
     )
     SELECT
-      to_char(m.month, 'YYYY-MM-DD') AS month,
-      COALESCE(d.new_mrr, 0)          AS new_mrr,
-      COALESCE(d.expansion_mrr, 0)    AS expansion_mrr,
-      COALESCE(d.contraction_mrr, 0)  AS contraction_mrr,
-      COALESCE(d.churned_mrr, 0)      AS churned_mrr,
-      SUM(COALESCE(d.net_mrr_change, 0)) OVER (ORDER BY m.month) AS mrr
-    FROM months m
-    LEFT JOIN monthly_deltas d ON d.month = m.month
-    ORDER BY m.month
+      to_char(month, 'YYYY-MM-DD') AS month,
+      new_mrr, expansion_mrr, contraction_mrr, churned_mrr, mrr
+    FROM full_series
+    WHERE (${startDate}::date IS NULL OR month >= ${startDate}::date)
+      AND (${endDate}::date IS NULL OR month <= ${endDate}::date)
+    ORDER BY month
   `;
 
   return rows.map((r) => ({
@@ -65,13 +91,15 @@ export type ChurnRow = {
   revenueChurnRatePct: number | null;
 };
 
-// mirrors queries.sql
-export async function getMonthlyChurn(): Promise<ChurnRow[]> {
+// Monthly customer and revenue churn rates, filtered by date range and plan tier
+export async function getMonthlyChurn(filters: DashboardFilters = {}): Promise<ChurnRow[]> {
+  const { startDate, endDate, planTier } = normalize(filters);
+
   const rows = await prisma.$queryRaw<Record<string, unknown>[]>`
     WITH months AS (
       SELECT generate_series(
-        date_trunc('month', (SELECT MIN("startDate") FROM "Subscription")),
-        date_trunc('month', now()),
+        date_trunc('month', COALESCE(${startDate}::date, (SELECT MIN("startDate") FROM "Subscription"))),
+        date_trunc('month', COALESCE(${endDate}::date, now())),
         interval '1 month'
       )::date AS month_start
     ),
@@ -90,7 +118,10 @@ export async function getMonthlyChurn(): Promise<ChurnRow[]> {
           WHERE s."endDate" >= b.month_start AND s."endDate" < b.month_end
         ) AS churned_customers
       FROM bounds b
-      LEFT JOIN "Subscription" s ON TRUE
+      LEFT JOIN "Subscription" s ON (
+        ${planTier}::text IS NULL
+        OR EXISTS (SELECT 1 FROM "Plan" pp WHERE pp.id = s."planId" AND pp.name = ${planTier})
+      )
       GROUP BY b.month_start
     ),
     mrr_figures AS (
@@ -103,7 +134,13 @@ export async function getMonthlyChurn(): Promise<ChurnRow[]> {
             AND e."occurredAt" < b.month_end
         ) AS churned_mrr
       FROM bounds b
-      LEFT JOIN "SubscriptionEvent" e ON TRUE
+      LEFT JOIN "SubscriptionEvent" e ON (
+        ${planTier}::text IS NULL
+        OR EXISTS (
+          SELECT 1 FROM "Subscription" ss JOIN "Plan" pp ON pp.id = ss."planId"
+          WHERE ss.id = e."subscriptionId" AND pp.name = ${planTier}
+        )
+      )
       GROUP BY b.month_start
     )
     SELECT
@@ -138,8 +175,10 @@ export type CohortRetentionRow = {
   retentionPct: number;
 };
 
-// mirrors the "Cohort retention" query in queries.sql
-export async function getCohortRetention(): Promise<CohortRetentionRow[]> {
+// Customer retention by signup cohort, filtered by date range and plan tier
+export async function getCohortRetention(filters: DashboardFilters = {}): Promise<CohortRetentionRow[]> {
+  const { startDate, endDate, planTier } = normalize(filters);
+
   const rows = await prisma.$queryRaw<Record<string, unknown>[]>`
     WITH cohorts AS (
       SELECT
@@ -149,6 +188,10 @@ export async function getCohortRetention(): Promise<CohortRetentionRow[]> {
         s."endDate"
       FROM "Customer" c
       JOIN "Subscription" s ON s."customerId" = c.id
+      JOIN "Plan" p ON p.id = s."planId"
+      WHERE (${planTier}::text IS NULL OR p.name = ${planTier})
+        AND (${startDate}::date IS NULL OR date_trunc('month', c."createdAt") >= date_trunc('month', ${startDate}::date))
+        AND (${endDate}::date IS NULL OR date_trunc('month', c."createdAt") <= date_trunc('month', ${endDate}::date))
     ),
     cohort_sizes AS (
       SELECT cohort_month, COUNT(*) AS cohort_size
