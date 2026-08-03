@@ -24,7 +24,7 @@ export const StatTile = ({ label, value, sublabel, status, loading }: StatTilePr
       }}
     >
       <span className="text-sm font-medium text-(--text-muted)">{label}</span>
-      <span className="text-4xl font-bold tabular-nums text-white">{value}</span>
+      <span className="text-4xl font-bold tabular-nums text-(--text-primary)">{value}</span>
       {sublabel && (
         <span
           className="text-sm font-medium"

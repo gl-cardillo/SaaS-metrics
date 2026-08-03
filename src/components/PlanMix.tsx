@@ -28,7 +28,7 @@ export const PlanMix = ({
         opacity: loading ? 0.5 : 1,
       }}
     >
-      <h2 className="text-sm font-semibold text-white">Plan mix</h2>
+      <h2 className="text-sm font-semibold text-(--text-primary)">Plan mix</h2>
       <div className="flex flex-col gap-3">
         {rows.map((row) => {
           const share = total > 0 ? (row.activeCustomers / total) * 100 : 0;
@@ -36,7 +36,7 @@ export const PlanMix = ({
           return (
             <div key={row.planName} className="flex flex-col gap-1">
               <div className="flex items-baseline justify-between text-sm">
-                <span className="font-medium text-white">{row.planName}</span>
+                <span className="font-medium text-(--text-primary)">{row.planName}</span>
                 <span className="text-(--text-secondary) tabular-nums">
                   {row.activeCustomers}{" "}
                   <span className="text-(--text-muted)">

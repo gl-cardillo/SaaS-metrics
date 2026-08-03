@@ -52,7 +52,7 @@ export const CohortHeatmap = ({
       style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", opacity: loading ? 0.5 : 1 }}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-white">Cohort retention</h2>
+        <h2 className="text-sm font-semibold text-(--text-primary)">Cohort retention</h2>
         <div className="flex items-center gap-2 text-xs text-(--text-muted)">
           <span>0%</span>
           <span
@@ -111,7 +111,7 @@ export const CohortHeatmap = ({
                       <td
                         key={m}
                         className="w-9 rounded-md"
-                        style={{ background: "rgba(255,255,255,0.03)" }}
+                        style={{ background: "var(--cell-empty)" }}
                       />
                     );
                   const { bg, fg } = stepFor(cell.retentionPct);

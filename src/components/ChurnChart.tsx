@@ -28,7 +28,7 @@ export const ChurnChart = ({
       className="flex flex-col gap-3 rounded-xl border p-4 transition-opacity"
       style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", opacity: loading ? 0.5 : 1 }}
     >
-      <h2 className="text-sm font-semibold text-white">Monthly churn rate</h2>
+      <h2 className="text-sm font-semibold text-(--text-primary)">Monthly churn rate</h2>
       <ResponsiveContainer width="100%" height={240}>
         <LineChart data={data} margin={{ left: 8, right: 8 }}>
           <CartesianGrid stroke="var(--grid-line)" vertical={false} />
@@ -79,7 +79,7 @@ export const ChurnChart = ({
       </ResponsiveContainer>
 
       <details className="text-sm">
-        <summary className="cursor-pointer text-(--text-secondary) hover:text-white">
+        <summary className="cursor-pointer text-(--text-secondary) hover:text-(--text-primary)">
           View as table
         </summary>
         <div className="mt-2 overflow-x-auto">

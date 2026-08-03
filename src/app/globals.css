@@ -1,10 +1,12 @@
 @import "tailwindcss";
 
-:root {
+:root,
+[data-theme="dark"] {
   --page-bg: #0c0d21;
   --card-bg: #1a1c3d;
   --card-bg-raised: #20224a;
   --card-border: rgba(255, 255, 255, 0.08);
+  --cell-empty: rgba(255, 255, 255, 0.03);
   --text-primary: #ffffff;
   --text-secondary: #b6b8d6;
   --text-muted: #82849f;
@@ -27,6 +29,38 @@
 
   --background: var(--page-bg);
   --foreground: var(--text-primary);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --page-bg: #f4f5fb;
+  --card-bg: #ffffff;
+  --card-bg-raised: #eef0f8;
+  --card-border: rgba(12, 13, 33, 0.1);
+  --cell-empty: rgba(12, 13, 33, 0.04);
+  --text-primary: #0c0d21;
+  --text-secondary: #4d4f72;
+  --text-muted: #767898;
+  --grid-line: rgba(12, 13, 33, 0.1);
+  --accent: #2f6fc4;
+
+  --series-blue: #2f6fc4;
+  --series-orange: #b5481f;
+  --series-aqua: #147a57;
+  --series-yellow: #9c6900;
+  --series-magenta: #b13d68;
+  --series-green: #026902;
+  --series-violet: #6f63d6;
+  --series-red: #c94f4f;
+
+  --status-good: #0a8a0a;
+  --status-warning: #c98300;
+  --status-serious: #c86438;
+  --status-critical: #b6302f;
+
+  --background: var(--page-bg);
+  --foreground: var(--text-primary);
+  color-scheme: light;
 }
 
 @theme inline {
@@ -38,7 +72,6 @@
 
 html {
   height: 100%;
-  color-scheme: dark;
 }
 
 body {
@@ -50,4 +83,16 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.theme-toggle-icon-light {
+  display: none;
+}
+
+[data-theme="light"] .theme-toggle-icon-dark {
+  display: none;
+}
+
+[data-theme="light"] .theme-toggle-icon-light {
+  display: block;
 }

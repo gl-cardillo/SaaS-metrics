@@ -15,7 +15,7 @@ type FiltersProps = {
 
 export const Filters = ({ value, onChange }: FiltersProps) => {
   const inputClass =
-    "rounded-md border px-2 py-1 text-white outline-none focus:border-[var(--accent)]";
+    "rounded-md border px-2 py-1 text-(--text-primary) outline-none focus:border-[var(--accent)]";
   const inputStyle = { background: "var(--card-bg-raised)", borderColor: "var(--card-border)" };
 
   return (
@@ -63,7 +63,7 @@ export const Filters = ({ value, onChange }: FiltersProps) => {
         <button
           type="button"
           onClick={() => onChange({ start: "", end: "", tier: "" })}
-          className="text-sm underline underline-offset-2 text-(--text-secondary) hover:text-white"
+          className="text-sm underline underline-offset-2 text-(--text-secondary) hover:text-(--text-primary)"
         >
           Clear filters
         </button>
