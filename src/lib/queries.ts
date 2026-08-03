@@ -167,6 +167,34 @@ export async function getMonthlyChurn(filters: DashboardFilters = {}): Promise<C
   }));
 }
 
+export type PlanMixRow = {
+  planName: string;
+  activeCustomers: number;
+};
+
+// Current active-subscription count per plan tier, as of the filter's end date (or now)
+export async function getPlanMix(filters: DashboardFilters = {}): Promise<PlanMixRow[]> {
+  const { endDate, planTier } = normalize(filters);
+
+  const rows = await prisma.$queryRaw<Record<string, unknown>[]>`
+    SELECT
+      p.name AS plan_name,
+      COUNT(s.id) AS active_customers
+    FROM "Subscription" s
+    JOIN "Plan" p ON p.id = s."planId"
+    WHERE s."startDate" <= COALESCE(${endDate}::date, now())
+      AND (s."endDate" IS NULL OR s."endDate" > COALESCE(${endDate}::date, now()))
+      AND (${planTier}::text IS NULL OR p.name = ${planTier})
+    GROUP BY p.name
+    ORDER BY p.name
+  `;
+
+  return rows.map((r) => ({
+    planName: String(r.plan_name),
+    activeCustomers: num(r.active_customers),
+  }));
+}
+
 export type CohortRetentionRow = {
   cohortMonth: string;
   cohortSize: number;

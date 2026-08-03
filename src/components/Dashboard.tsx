@@ -5,8 +5,9 @@ import { Filters, type FilterValue } from "./Filters";
 import { MrrCharts } from "./MrrCharts";
 import { ChurnChart } from "./ChurnChart";
 import { CohortHeatmap } from "./CohortHeatmap";
+import { PlanMix } from "./PlanMix";
 import { StatTile } from "./StatTile";
-import type { MrrRow, ChurnRow, CohortRetentionRow } from "@/lib/queries";
+import type { MrrRow, ChurnRow, CohortRetentionRow, PlanMixRow } from "@/lib/queries";
 
 const currency = (value: number) =>
   `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -40,6 +41,7 @@ export const Dashboard = () => {
   const [mrr, setMrr] = useState<MrrRow[]>([]);
   const [churn, setChurn] = useState<ChurnRow[]>([]);
   const [cohorts, setCohorts] = useState<CohortRetentionRow[]>([]);
+  const [planMix, setPlanMix] = useState<PlanMixRow[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -56,11 +58,15 @@ export const Dashboard = () => {
       fetch(`/api/cohorts${qs}`, { signal: controller.signal }).then((r) =>
         r.json(),
       ),
+      fetch(`/api/plan-mix${qs}`, { signal: controller.signal }).then((r) =>
+        r.json(),
+      ),
     ])
-      .then(([mrrData, churnData, cohortData]) => {
+      .then(([mrrData, churnData, cohortData, planMixData]) => {
         setMrr(mrrData);
         setChurn(churnData);
         setCohorts(cohortData);
+        setPlanMix(planMixData);
         setLoading(false);
       })
       .catch((err) => {
@@ -115,7 +121,10 @@ export const Dashboard = () => {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <MrrCharts data={mrr} loading={loading} />
-        <ChurnChart data={churn} loading={loading} />
+        <div className="flex flex-col gap-4">
+          <ChurnChart data={churn} loading={loading} />
+          <PlanMix data={planMix} loading={loading} />
+        </div>
       </div>
 
       <CohortHeatmap data={cohorts} loading={loading} />
