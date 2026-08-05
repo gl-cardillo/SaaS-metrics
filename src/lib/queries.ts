@@ -167,6 +167,88 @@ export async function getMonthlyChurn(filters: DashboardFilters = {}): Promise<C
   }));
 }
 
+export type NrrRow = {
+  month: string;
+  mrrStartOfMonth: number;
+  expansionMrr: number;
+  contractionMrr: number;
+  churnedMrr: number;
+  nrrPct: number | null;
+};
+
+// net revenue retention, excluding new-business MRR.
+export async function getMonthlyNrr(filters: DashboardFilters = {}): Promise<NrrRow[]> {
+  const { startDate, endDate, planTier } = normalize(filters);
+
+  const rows = await prisma.$queryRaw<Record<string, unknown>[]>`
+    WITH months AS (
+      SELECT generate_series(
+        date_trunc('month', (SELECT MIN("occurredAt") FROM "SubscriptionEvent")),
+        date_trunc('month', now()),
+        interval '1 month'
+      )::date AS month
+    ),
+    monthly_deltas AS (
+      SELECT
+        date_trunc('month', e."occurredAt")::date AS month,
+        SUM(e."mrrDelta") FILTER (WHERE e.type = 'UPGRADED')   AS expansion_mrr,
+        SUM(e."mrrDelta") FILTER (WHERE e.type = 'DOWNGRADED') AS contraction_mrr,
+        SUM(e."mrrDelta") FILTER (WHERE e.type = 'CANCELLED')  AS churned_mrr
+      FROM "SubscriptionEvent" e
+      JOIN "Subscription" s ON s.id = e."subscriptionId"
+      JOIN "Plan" p ON p.id = s."planId"
+      WHERE (${planTier}::text IS NULL OR p.name = ${planTier})
+      GROUP BY 1
+    ),
+    starting_mrr AS (
+      SELECT
+        m.month,
+        SUM(e."mrrDelta") FILTER (WHERE e."occurredAt" < m.month) AS mrr_start_of_month
+      FROM months m
+      LEFT JOIN "SubscriptionEvent" e ON (
+        ${planTier}::text IS NULL
+        OR EXISTS (
+          SELECT 1 FROM "Subscription" ss JOIN "Plan" pp ON pp.id = ss."planId"
+          WHERE ss.id = e."subscriptionId" AND pp.name = ${planTier}
+        )
+      )
+      GROUP BY m.month
+    ),
+    full_series AS (
+      SELECT
+        m.month,
+        COALESCE(sm.mrr_start_of_month, 0) AS mrr_start_of_month,
+        COALESCE(d.expansion_mrr, 0)       AS expansion_mrr,
+        COALESCE(d.contraction_mrr, 0)     AS contraction_mrr,
+        COALESCE(d.churned_mrr, 0)         AS churned_mrr
+      FROM months m
+      LEFT JOIN monthly_deltas d ON d.month = m.month
+      LEFT JOIN starting_mrr sm ON sm.month = m.month
+    )
+    SELECT
+      to_char(month, 'YYYY-MM-DD') AS month,
+      mrr_start_of_month, expansion_mrr, contraction_mrr, churned_mrr,
+      ROUND(
+        100.0 * (mrr_start_of_month + expansion_mrr + contraction_mrr + churned_mrr)
+        / NULLIF(mrr_start_of_month, 0),
+        2
+      ) AS nrr_pct
+    FROM full_series
+    WHERE (${startDate}::date IS NULL OR month >= ${startDate}::date)
+      AND (${endDate}::date IS NULL OR month <= ${endDate}::date)
+    ORDER BY month
+  `;
+
+  return rows.map((r) => ({
+    month: String(r.month),
+    mrrStartOfMonth: num(r.mrr_start_of_month),
+    expansionMrr: num(r.expansion_mrr),
+    contractionMrr: num(r.contraction_mrr),
+    churnedMrr: num(r.churned_mrr),
+    nrrPct: r.nrr_pct === null ? null : num(r.nrr_pct),
+  }));
+}
+
 export type PlanMixRow = {
   planName: string;
   activeCustomers: number;

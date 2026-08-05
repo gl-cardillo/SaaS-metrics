@@ -12,6 +12,8 @@ import {
 } from "recharts";
 import type { ChurnRow } from "@/lib/queries";
 import { formatMonth } from "@/lib/formatMonth";
+import { EmptyState } from "./EmptyState";
+import { ExportButton } from "./ExportButton";
 
 const pct = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(2)}%`;
@@ -28,7 +30,14 @@ export const ChurnChart = ({
       className="flex flex-col gap-3 rounded-xl border p-4 transition-opacity"
       style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", opacity: loading ? 0.5 : 1 }}
     >
-      <h2 className="text-sm font-semibold text-(--text-primary)">Monthly churn rate</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-(--text-primary)">Monthly churn rate</h2>
+        <ExportButton filename="churn.csv" rows={data} />
+      </div>
+      {!loading && data.length === 0 ? (
+        <EmptyState message="No churn data for this range." />
+      ) : (
+        <>
       <ResponsiveContainer width="100%" height={240}>
         <LineChart data={data} margin={{ left: 8, right: 8 }}>
           <CartesianGrid stroke="var(--grid-line)" vertical={false} />
@@ -107,6 +116,8 @@ export const ChurnChart = ({
           </table>
         </div>
       </details>
+        </>
+      )}
     </section>
   );
 };

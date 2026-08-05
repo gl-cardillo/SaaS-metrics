@@ -2,6 +2,8 @@
 
 import type { PlanMixRow } from "@/lib/queries";
 import { PLAN_TIERS } from "@/lib/constants";
+import { EmptyState } from "./EmptyState";
+import { ExportButton } from "./ExportButton";
 
 const COLOR_BY_TIER: Record<string, string> = {
   [PLAN_TIERS[0]]: "var(--series-blue)",
@@ -28,7 +30,10 @@ export const PlanMix = ({
         opacity: loading ? 0.5 : 1,
       }}
     >
-      <h2 className="text-sm font-semibold text-(--text-primary)">Plan mix</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-(--text-primary)">Plan mix</h2>
+        <ExportButton filename="plan-mix.csv" rows={data} />
+      </div>
       <div className="flex flex-col gap-3">
         {rows.map((row) => {
           const share = total > 0 ? (row.activeCustomers / total) * 100 : 0;
@@ -57,9 +62,7 @@ export const PlanMix = ({
           );
         })}
         {rows.length === 0 && !loading && (
-          <p className="text-sm text-(--text-muted)">
-            No active subscriptions in range.
-          </p>
+          <EmptyState message="No active subscriptions in range." />
         )}
       </div>
     </section>

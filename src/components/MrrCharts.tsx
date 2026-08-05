@@ -14,6 +14,8 @@ import {
 } from "recharts";
 import type { MrrRow } from "@/lib/queries";
 import { formatMonth } from "@/lib/formatMonth";
+import { EmptyState } from "./EmptyState";
+import { ExportButton } from "./ExportButton";
 
 const currency = (value: number) =>
   `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -25,13 +27,28 @@ export const MrrCharts = ({
   data: MrrRow[];
   loading: boolean;
 }) => {
+  if (!loading && data.length === 0) {
+    return (
+      <section
+        className="flex flex-col rounded-xl border p-4 transition-opacity"
+        style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", opacity: loading ? 0.5 : 1 }}
+      >
+        <h2 className="text-sm font-semibold text-(--text-primary)">MRR</h2>
+        <EmptyState message="No MRR data for this range." />
+      </section>
+    );
+  }
+
   return (
     <section
       className="flex flex-col gap-6 rounded-xl border p-4 transition-opacity"
       style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", opacity: loading ? 0.5 : 1 }}
     >
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-(--text-primary)">MRR trend</h2>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-(--text-primary)">MRR trend</h2>
+          <ExportButton filename="mrr.csv" rows={data} />
+        </div>
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={data} margin={{ left: 8, right: 8 }}>
             <CartesianGrid stroke="var(--grid-line)" vertical={false} />

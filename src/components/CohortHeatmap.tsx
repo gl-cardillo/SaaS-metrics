@@ -2,6 +2,8 @@
 
 import type { CohortRetentionRow } from "@/lib/queries";
 import { formatMonth } from "@/lib/formatMonth";
+import { EmptyState } from "./EmptyState";
+import { ExportButton } from "./ExportButton";
 
 // Sequential blue ramp, light -> dark, 13 stops
 const RAMP = [
@@ -53,15 +55,23 @@ export const CohortHeatmap = ({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-(--text-primary)">Cohort retention</h2>
-        <div className="flex items-center gap-2 text-xs text-(--text-muted)">
-          <span>0%</span>
-          <span
-            className="h-2 w-24 rounded-full"
-            style={{ background: `linear-gradient(to right, ${RAMP[0]}, ${RAMP[RAMP.length - 1]})` }}
-          />
-          <span>100%</span>
+        <div className="flex items-center gap-3">
+          {!loading && data.length > 0 && (
+            <div className="flex items-center gap-2 text-xs text-(--text-muted)">
+              <span>0%</span>
+              <span
+                className="h-2 w-24 rounded-full"
+                style={{ background: `linear-gradient(to right, ${RAMP[0]}, ${RAMP[RAMP.length - 1]})` }}
+              />
+              <span>100%</span>
+            </div>
+          )}
+          <ExportButton filename="cohort-retention.csv" rows={data} />
         </div>
       </div>
+      {!loading && data.length === 0 ? (
+        <EmptyState message="No cohort data for this range." />
+      ) : (
       <div className="max-h-105 overflow-auto rounded-lg">
         <table className="border-separate [border-spacing:3px] text-[11px] [font-variant-numeric:tabular-nums]">
           <thead>
@@ -131,6 +141,7 @@ export const CohortHeatmap = ({
           </tbody>
         </table>
       </div>
+      )}
     </section>
   );
 };
