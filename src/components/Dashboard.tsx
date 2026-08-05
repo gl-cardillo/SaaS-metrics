@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Filters, type FilterValue } from "./Filters";
 import { MrrCharts } from "./MrrCharts";
 import { ChurnChart } from "./ChurnChart";
@@ -10,7 +11,13 @@ import { PlanMix } from "./PlanMix";
 import { StatTile } from "./StatTile";
 import { ErrorBanner } from "./ErrorBanner";
 import { DashboardSkeleton } from "./Skeleton";
-import type { MrrRow, NrrRow, ChurnRow, CohortRetentionRow, PlanMixRow } from "@/lib/queries";
+import type {
+  MrrRow,
+  NrrRow,
+  ChurnRow,
+  CohortRetentionRow,
+  PlanMixRow,
+} from "@/lib/queries";
 
 const currency = (value: number) =>
   `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -18,14 +25,18 @@ const currency = (value: number) =>
 const pct = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)}%`;
 
-const churnStatus = (value: number | null): "good" | "warning" | "critical" | undefined => {
+const churnStatus = (
+  value: number | null,
+): "good" | "warning" | "critical" | undefined => {
   if (value === null) return undefined;
   if (value >= 6) return "critical";
   if (value >= 3) return "warning";
   return "good";
 };
 
-const nrrStatus = (value: number | null): "good" | "warning" | "critical" | undefined => {
+const nrrStatus = (
+  value: number | null,
+): "good" | "warning" | "critical" | undefined => {
   if (value === null) return undefined;
   if (value < 85) return "critical";
   if (value < 100) return "warning";
@@ -39,7 +50,7 @@ const buildQuery = (filters: FilterValue): string => {
   if (filters.tier) params.set("tier", filters.tier);
   const qs = params.toString();
   return qs ? `?${qs}` : "";
-}
+};
 
 async function fetchJson<T>(url: string, signal: AbortSignal): Promise<T> {
   const res = await fetch(url, { signal });
@@ -55,58 +66,63 @@ export const Dashboard = () => {
     end: "",
     tier: "",
   });
-  const [loading, setLoading] = useState(true);
-  const [initialLoad, setInitialLoad] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retryToken, setRetryToken] = useState(0);
-  const [mrr, setMrr] = useState<MrrRow[]>([]);
-  const [nrr, setNrr] = useState<NrrRow[]>([]);
-  const [churn, setChurn] = useState<ChurnRow[]>([]);
-  const [cohorts, setCohorts] = useState<CohortRetentionRow[]>([]);
-  const [planMix, setPlanMix] = useState<PlanMixRow[]>([]);
+  const qs = buildQuery(filters);
 
-  const fetchAll = useCallback((current: FilterValue, signal: AbortSignal) => {
-    const qs = buildQuery(current);
-
-    setLoading(true);
-    setError(null);
-    Promise.all([
-      fetchJson<MrrRow[]>(`/api/mrr${qs}`, signal),
-      fetchJson<NrrRow[]>(`/api/nrr${qs}`, signal),
-      fetchJson<ChurnRow[]>(`/api/churn${qs}`, signal),
+  const mrrQuery = useQuery({
+    queryKey: ["mrr", filters],
+    queryFn: ({ signal }) => fetchJson<MrrRow[]>(`/api/mrr${qs}`, signal),
+    placeholderData: keepPreviousData,
+  });
+  const nrrQuery = useQuery({
+    queryKey: ["nrr", filters],
+    queryFn: ({ signal }) => fetchJson<NrrRow[]>(`/api/nrr${qs}`, signal),
+    placeholderData: keepPreviousData,
+  });
+  const churnQuery = useQuery({
+    queryKey: ["churn", filters],
+    queryFn: ({ signal }) => fetchJson<ChurnRow[]>(`/api/churn${qs}`, signal),
+    placeholderData: keepPreviousData,
+  });
+  const cohortsQuery = useQuery({
+    queryKey: ["cohorts", filters],
+    queryFn: ({ signal }) =>
       fetchJson<CohortRetentionRow[]>(`/api/cohorts${qs}`, signal),
+    placeholderData: keepPreviousData,
+  });
+  const planMixQuery = useQuery({
+    queryKey: ["plan-mix", filters],
+    queryFn: ({ signal }) =>
       fetchJson<PlanMixRow[]>(`/api/plan-mix${qs}`, signal),
-    ])
-      .then(([mrrData, nrrData, churnData, cohortData, planMixData]) => {
-        setMrr(mrrData);
-        setNrr(nrrData);
-        setChurn(churnData);
-        setCohorts(cohortData);
-        setPlanMix(planMixData);
-        setLoading(false);
-        setInitialLoad(false);
-      })
-      .catch((err) => {
-        if (err instanceof Error && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : "Something went wrong.");
-        setLoading(false);
-      });
-  }, []);
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchAll(filters, controller.signal);
-    return () => controller.abort();
-  }, [filters, retryToken, fetchAll]);
+  const queries = [mrrQuery, nrrQuery, churnQuery, cohortsQuery, planMixQuery];
+  const initialLoad = queries.some((q) => q.isPending);
+  const loading = queries.some((q) => q.isFetching);
+  const firstError = queries.find((q) => q.isError)?.error;
+  const error =
+    firstError instanceof Error
+      ? firstError.message
+      : firstError
+        ? "Something went wrong."
+        : null;
 
-  const handleRetry = () => setRetryToken((t) => t + 1);
+  const handleRetry = () => {
+    queries.forEach((q) => q.refetch());
+  };
+
+  const mrr = mrrQuery.data ?? [];
+  const nrr = nrrQuery.data ?? [];
+  const churn = churnQuery.data ?? [];
+  const cohorts = cohortsQuery.data ?? [];
+  const planMix = planMixQuery.data ?? [];
 
   const latestMrr = mrr.at(-1);
   const priorMrr = mrr.at(-2);
-  const mrrDelta =
-    latestMrr && priorMrr ? latestMrr.mrr - priorMrr.mrr : null;
+  const mrrDelta = latestMrr && priorMrr ? latestMrr.mrr - priorMrr.mrr : null;
   const latestChurn = churn.at(-1);
-  const latestNrr = [...nrr].reverse().find((row) => row.nrrPct !== null) ?? null;
+  const latestNrr =
+    [...nrr].reverse().find((row) => row.nrrPct !== null) ?? null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -114,7 +130,7 @@ export const Dashboard = () => {
 
       {error && <ErrorBanner message={error} onRetry={handleRetry} />}
 
-      {initialLoad && loading ? (
+      {initialLoad ? (
         <DashboardSkeleton />
       ) : (
         <>
@@ -127,7 +143,13 @@ export const Dashboard = () => {
                   ? undefined
                   : `${mrrDelta >= 0 ? "+" : ""}${currency(mrrDelta)} vs last month`
               }
-              status={mrrDelta === null ? undefined : mrrDelta >= 0 ? "good" : "warning"}
+              status={
+                mrrDelta === null
+                  ? undefined
+                  : mrrDelta >= 0
+                    ? "good"
+                    : "warning"
+              }
               loading={loading}
             />
             <StatTile
@@ -146,14 +168,22 @@ export const Dashboard = () => {
               label="Customer churn"
               value={latestChurn ? pct(latestChurn.customerChurnRatePct) : "—"}
               sublabel="This month"
-              status={latestChurn ? churnStatus(latestChurn.customerChurnRatePct) : undefined}
+              status={
+                latestChurn
+                  ? churnStatus(latestChurn.customerChurnRatePct)
+                  : undefined
+              }
               loading={loading}
             />
             <StatTile
               label="Revenue churn"
               value={latestChurn ? pct(latestChurn.revenueChurnRatePct) : "—"}
               sublabel="This month"
-              status={latestChurn ? churnStatus(latestChurn.revenueChurnRatePct) : undefined}
+              status={
+                latestChurn
+                  ? churnStatus(latestChurn.revenueChurnRatePct)
+                  : undefined
+              }
               loading={loading}
             />
           </div>
